@@ -2,10 +2,10 @@ name: 🐳 Build & Push Docker Image
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: [master]
 
 env:
   IMAGE_NAME: ansible-vault
@@ -46,7 +46,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USER }}/${{ env.IMAGE_NAME }}
             ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=
