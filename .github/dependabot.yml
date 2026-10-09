@@ -1,0 +1,29 @@
+# Dependabot keeps three things current and opens PRs for each:
+#   docker          -> digest of the UBI builder image in the Dockerfile
+#   pip             -> ansible-core and its dependencies in requirements.txt (with hashes)
+#   github-actions  -> the SHA-pinned actions in .github/workflows
+# PRs are merged automatically once the `ci` check passes
+# (.github/workflows/dependabot-automerge.yml), and the publish workflow
+# then ships a new image version.
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: daily
+    commit-message:
+      prefix: "deps(docker)"
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: daily
+    commit-message:
+      prefix: "deps(pip)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "deps(actions)"

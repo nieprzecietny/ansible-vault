@@ -1,34 +1,46 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim
+#
+# ansible-vault, and nothing else.
+#
+# Stage 1 assembles a minimal RHEL 10 root filesystem from the Red Hat UBI
+# repositories (always the latest packages at build time, which is how RHEL
+# errata reach the image on every scheduled rebuild). Stage 2 is that root
+# filesystem on top of `scratch`: no package manager, no pip, no editors, no
+# pager, no network tools. The RPM database is kept so scanners (Trivy, Grype)
+# can see exactly what is inside.
 
-ARG ANSIBLE_VERSION=9.12.0
+FROM registry.access.redhat.com/ubi10/ubi:latest@sha256:27e14f4987d7abe56664d7e1b1dddcd0226d4ca593da5726f0f65697a17d0fee AS builder
 
-# minimalne paczki, przydatne też jak kiedyś dojdzie git/ssh
-# less      -> pager dla `ansible-vault view` (bez niego: "/bin/sh: 1: less: not found")
-# vim-tiny  -> dostarcza `vi`, domyślny edytor dla `ansible-vault edit|create`
-# nano      -> alternatywny edytor, włącz przez `-e EDITOR=nano`
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates \
-      openssh-client \
-      git \
-      less \
-      vim-tiny \
-      nano \
-    && rm -rf /var/lib/apt/lists/*
+# hadolint ignore=DL3041  # unpinned on purpose: every rebuild must pick up the newest RHEL errata
+RUN dnf install -y --nodocs --setopt=install_weak_deps=0 python3-pip \
+ && mkdir -p /rootfs \
+ && dnf install -y --installroot /rootfs --releasever 10 --nodocs --setopt=install_weak_deps=0 \
+      redhat-release filesystem setup bash coreutils-single python3 \
+ && dnf --installroot /rootfs clean all \
+ && rm -rf /rootfs/var/cache/* /rootfs/var/log/* /rootfs/var/lib/dnf /rootfs/etc/dnf /rootfs/etc/yum.repos.d
 
-# Ansible (ansible-vault jest w pakiecie)
-RUN pip install --no-cache-dir "ansible==${ANSIBLE_VERSION}"
+COPY requirements.txt /tmp/requirements.txt
+RUN python3 -m pip install --no-cache-dir --no-compile --require-hashes \
+      --root /rootfs --prefix /usr/local -r /tmp/requirements.txt \
+ && python3 -m compileall -q -s /rootfs /rootfs/usr/local/lib/python3.12/site-packages \
+ # ansible-core ships a dozen CLIs; only the vault one belongs in this image
+ && find /rootfs/usr/local/bin -mindepth 1 ! -name ansible-vault -delete \
+ && rm -rf /rootfs/usr/local/lib/python3.12/site-packages/ansible_test \
+ && echo 'ansible:x:1000:1000:ansible-vault:/tmp:/sbin/nologin' >> /rootfs/etc/passwd \
+ && echo 'ansible:x:1000:' >> /rootfs/etc/group
 
-# nie róbmy tego jako root
-RUN useradd -m -u 1000 ansible
-USER ansible
+FROM scratch
+COPY --from=builder /rootfs/ /
 
-# `view` używa $PAGER, `edit`/`create` używa $EDITOR
-ENV PAGER=less \
-    EDITOR=vi
+# PAGER=cat: `view` pipes through $PAGER on a TTY and there is no less in here.
+# ANSIBLE_HOME on /tmp lets the container run read-only and under any --user.
+ENV LANG=C.UTF-8 \
+    PAGER=cat \
+    PYTHONDONTWRITEBYTECODE=1 \
+    ANSIBLE_HOME=/tmp/.ansible \
+    PATH=/usr/local/bin:/usr/bin:/bin
 
+USER 1000:1000
 WORKDIR /work
-
-# domyślnie odpalaj ansible-vault
 ENTRYPOINT ["ansible-vault"]
 CMD ["--help"]

@@ -1,0 +1,9 @@
+# never commit vault passwords
+.vault_pass
+*.vault_pass
+
+# scanner / SBOM artifacts produced by the scripts and CI
+*.sarif
+*-packages.txt
+packages.diff
+sbom*.json
