@@ -83,22 +83,8 @@ jobs:
           FORCE: ${{ inputs.force == true }}
         run: scripts/package-diff.sh ansible-vault:candidate "$DOCKERHUB_IMAGE:latest"
 
-      - name: Scan with Trivy
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ansible-vault:candidate
-          scanners: vuln
-          format: sarif
-          output: trivy.sarif
-          exit-code: "0"
-
-      - name: Upload Trivy results to code scanning
-        uses: github/codeql-action/upload-sarif@f3c49fd1ef3281abc41069b3dd22807a60c963f6 # v4
-        with:
-          sarif_file: trivy.sarif
-          category: trivy
-
       - name: Scan with Grype
+        continue-on-error: true
         id: grype
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
@@ -107,6 +93,7 @@ jobs:
           output-format: sarif
 
       - name: Upload Grype results to code scanning
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@f3c49fd1ef3281abc41069b3dd22807a60c963f6 # v4
         with:
           sarif_file: ${{ steps.grype.outputs.sarif }}

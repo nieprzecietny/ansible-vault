@@ -144,8 +144,8 @@ docker buildx imagetools inspect nieprzecietnykowalski/ansible-vault:latest --fo
 
 1. **Daily at 05:17 UTC, and on every push to `master`**, the `publish` workflow builds the image
    from scratch (no layer cache, so the newest RHEL packages are picked up), runs the smoke test,
-   scans it with Trivy and Grype (results land in the repository's Security tab) and compares its
-   package set with the published `latest` using syft.
+   scans it with Grype (results land in the repository's Security tab; Trivy is not used because it
+   does not support RHEL 10 yet) and compares its package set with the published `latest` using syft.
 2. **If anything changed** (RHEL errata, a new `ansible-core`, a new dependency) a new version is
    pushed to both registries, signed, and tagged as in the table above. Each run's summary lists
    the package diff. If nothing changed, nothing is published.

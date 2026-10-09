@@ -31,19 +31,11 @@ jobs:
       - name: Smoke test
         run: scripts/smoke-test.sh ansible-vault:ci
 
-      # Scans are informational here: publishing decisions are made by the
-      # publish workflow, and alerts live in the Security tab.
-      - name: Scan (Trivy, fixable CRITICAL/HIGH)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ansible-vault:ci
-          scanners: vuln
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "0"
-          format: table
-
+      # The scan is informational: publishing decisions are made by the publish
+      # workflow and alerts live in the Security tab. Grype only: Trivy does not
+      # support RHEL 10 yet (aquasecurity/trivy#7452).
       - name: Scan (Grype, fixable only)
+        continue-on-error: true
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
           image: ansible-vault:ci
