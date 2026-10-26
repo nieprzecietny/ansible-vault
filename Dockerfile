@@ -9,7 +9,7 @@
 # pager, no network tools. The RPM database is kept so scanners (Trivy, Grype)
 # can see exactly what is inside.
 
-FROM registry.access.redhat.com/ubi10/ubi:latest@sha256:8093e25343aaa386bb9d5dee1cc575195baaf807dad4daaa2d43b51ab4f83e16 AS builder
+FROM registry.access.redhat.com/ubi10/ubi:latest@sha256:7495bfa53ae7a81a58aeface0bb4858d12741832c542c29dc690d67b183b73b0 AS builder
 
 # hadolint ignore=DL3041  # unpinned on purpose: every rebuild must pick up the newest RHEL errata
 RUN dnf install -y --nodocs --setopt=install_weak_deps=0 python3-pip \
