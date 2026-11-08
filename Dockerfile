@@ -8,24 +8,33 @@
 # filesystem on top of `scratch`: no package manager, no pip, no editors, no
 # pager, no network tools. The RPM database is kept so scanners (Trivy, Grype)
 # can see exactly what is inside.
+#
+# Python is an AppStream python3.X package, not the RHEL 10 system python3
+# (3.12): ansible-core 2.22 and later require Python 3.13 or newer. The version
+# lives in .python-version only (Dependabot's pip resolution reads it too) and
+# .github/workflows/python-bump.yml raises it when UBI 10 ships a newer one.
 
 FROM registry.access.redhat.com/ubi10/ubi:latest@sha256:0e8ccad7d35f5fd756f4f2202f018b8d3c3e8bb9af8e627d874239381a00ab41 AS builder
 
+COPY .python-version /tmp/.python-version
+
 # hadolint ignore=DL3041  # unpinned on purpose: every rebuild must pick up the newest RHEL errata
-RUN dnf install -y --nodocs --setopt=install_weak_deps=0 python3-pip \
+RUN PY="python$(tr -d '[:space:]' < /tmp/.python-version)" \
+ && dnf install -y --nodocs --setopt=install_weak_deps=0 "$PY-pip" \
  && mkdir -p /rootfs \
  && dnf install -y --installroot /rootfs --releasever 10 --nodocs --setopt=install_weak_deps=0 \
-      redhat-release filesystem setup bash coreutils-single python3 \
+      redhat-release filesystem setup bash coreutils-single "$PY" \
  && dnf --installroot /rootfs clean all \
  && rm -rf /rootfs/var/cache/* /rootfs/var/log/* /rootfs/var/lib/dnf /rootfs/etc/dnf /rootfs/etc/yum.repos.d
 
 COPY requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install --no-cache-dir --no-compile --require-hashes \
+RUN PY="python$(tr -d '[:space:]' < /tmp/.python-version)" \
+ && "$PY" -m pip install --no-cache-dir --no-compile --require-hashes \
       --root /rootfs --prefix /usr/local -r /tmp/requirements.txt \
- && python3 -m compileall -q -s /rootfs /rootfs/usr/local/lib/python3.12/site-packages \
+ && "$PY" -m compileall -q -s /rootfs "/rootfs/usr/local/lib/$PY/site-packages" \
  # ansible-core ships a dozen CLIs; only the vault one belongs in this image
  && find /rootfs/usr/local/bin -mindepth 1 ! -name ansible-vault -delete \
- && rm -rf /rootfs/usr/local/lib/python3.12/site-packages/ansible_test \
+ && rm -rf "/rootfs/usr/local/lib/$PY/site-packages/ansible_test" \
  && echo 'ansible:x:1000:1000:ansible-vault:/tmp:/sbin/nologin' >> /rootfs/etc/passwd \
  && echo 'ansible:x:1000:' >> /rootfs/etc/group
 

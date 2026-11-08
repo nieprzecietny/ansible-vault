@@ -4,3 +4,6 @@ Dockerfile text eol=lf
 *.yml text eol=lf
 *.txt text eol=lf
 *.in text eol=lf
+.python-version text eol=lf
+# compared byte for byte by scripts/integration-test.sh: never convert line endings
+tests/fixtures/** -text

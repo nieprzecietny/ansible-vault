@@ -2,6 +2,10 @@
 #   docker          -> digest of the UBI builder image in the Dockerfile
 #   pip             -> ansible-core and its dependencies in requirements.txt (with hashes)
 #   github-actions  -> the SHA-pinned actions in .github/workflows
+# Python itself is an RPM from the UBI 10 AppStream, which Dependabot cannot
+# track: .github/workflows/python-bump.yml raises .python-version instead.
+# Dependabot reads .python-version, so pip updates are resolved against the
+# image's Python.
 # PRs are merged automatically once the `ci` check passes
 # (.github/workflows/dependabot-automerge.yml), and the publish workflow
 # then ships a new image version.

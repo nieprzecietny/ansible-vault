@@ -1,4 +1,4 @@
-# Pull request gate: build, smoke test, scan. This job ("ci") is the required
+# Pull request gate: build, smoke test, integration test, scan. This job ("ci") is the required
 # status check on master, so Dependabot PRs auto-merge only when it passes.
 name: ci
 
@@ -30,6 +30,9 @@ jobs:
 
       - name: Smoke test
         run: scripts/smoke-test.sh ansible-vault:ci
+
+      - name: Integration test
+        run: scripts/integration-test.sh ansible-vault:ci
 
       # The scan is informational: publishing decisions are made by the publish
       # workflow and alerts live in the Security tab. Grype only: Trivy does not
