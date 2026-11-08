@@ -145,16 +145,17 @@ docker buildx imagetools inspect nieprzecietnykowalski/ansible-vault:latest --fo
 ## How updates happen (no human in the loop)
 
 1. **Daily at 05:17 UTC, and on every push to `master`**, the `publish` workflow builds the image
-   from scratch (no layer cache, so the newest RHEL packages are picked up), runs the smoke test,
-   scans it with Grype (results land in the repository's Security tab; Trivy is not used because it
-   does not support RHEL 10 yet) and compares its package set with the published `latest` using syft.
+   from scratch (no layer cache, so the newest RHEL packages are picked up), runs the smoke and
+   integration tests, scans it with Grype (results land in the repository's Security tab; Trivy is
+   not used because it does not support RHEL 10 yet) and compares its package set with the
+   published `latest` using syft.
 2. **If anything changed** (RHEL errata, a new `ansible-core`, a new dependency) a new version is
    pushed to both registries, signed, and tagged as in the table above. Each run's summary lists
    the package diff. If nothing changed, nothing is published.
 3. **Dependabot** opens pull requests for the UBI builder image digest, for `ansible-core` and its
    dependencies (`requirements.txt`, hashes included, security updates as soon as an advisory is
    out) and for the GitHub Actions. They are merged automatically once the `ci` check (build,
-   smoke test, scans) is green, and the next `publish` run ships them.
+   smoke test, integration test, scans) is green, and the next `publish` run ships them.
 4. **Python** is an RPM from the UBI 10 AppStream, which Dependabot cannot track. The daily
    `python bump` workflow (04:41 UTC) does the same job: when UBI 10 ships a newer `python3.X`, it
    opens a pull request that raises `.python-version`, starts `ci` on it and enables auto-merge.
@@ -169,7 +170,13 @@ To publish by hand: Actions, `publish`, *Run workflow* (tick *force* to publish 
 ```bash
 docker build -t ansible-vault:dev .
 scripts/smoke-test.sh ansible-vault:dev
+scripts/integration-test.sh ansible-vault:dev
 ```
+
+The integration test uses `tests/fixtures` (vault password `integrationtest`): `secrets.vault.yml`
+was encrypted once by release `2.21.5-20261105` (ansible-core 2.21.5, Python 3.12) and must still
+decrypt to `secrets.yml` byte for byte, and encrypting then decrypting `secrets.yml` must give it back
+unchanged. Never edit or regenerate the fixtures: they are what proves a new image still reads old vaults.
 
 To change the Python version, edit `.python-version` (the `python3.X` package must exist in the UBI 10
 AppStream). To change the `ansible-core` version, edit `requirements.in` and regenerate the pinned

@@ -72,6 +72,9 @@ jobs:
       - name: Smoke test
         run: scripts/smoke-test.sh ansible-vault:candidate
 
+      - name: Integration test
+        run: scripts/integration-test.sh ansible-vault:candidate
+
       - name: Install syft
         id: syft
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
