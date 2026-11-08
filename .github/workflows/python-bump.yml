@@ -1,0 +1,82 @@
+# Python in the image is an RPM from the UBI 10 AppStream (python3.14, ...),
+# which Dependabot cannot track. This job does Dependabot's work for it: when
+# UBI 10 ships a newer python3.X than .python-version names, it opens a PR that
+# raises .python-version (the only place the version lives: the Dockerfile
+# installs that package and Dependabot resolves requirements.txt against it)
+# and enables auto-merge, so the PR is merged once the required `ci` check passes.
+#
+# PRs opened with GITHUB_TOKEN do not trigger pull_request workflows, so the job
+# starts `ci` on the PR branch itself (workflow_dispatch; the check lands on the
+# same commit). Needs Settings > Actions > General > "Allow GitHub Actions to
+# create and approve pull requests". A bump PR that was closed without merging
+# is not opened again.
+name: python bump
+
+on:
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-bump
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the bump branch
+      pull-requests: write # open the PR, enable auto-merge
+      actions: write # start ci on the branch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Newest python3.X in the UBI 10 AppStream
+        id: version
+        run: |
+          image="$(sed -n 's/^FROM \([^ ]*\) AS builder$/\1/p' Dockerfile)"
+          current="$(tr -d '[:space:]' < .python-version)"
+          latest="$(docker run --rm "$image" \
+              dnf -q repoquery --available --qf '%{name}\n' 'python3.[0-9]*' \
+            | grep -E '^python3\.[0-9]+$' | sed 's/^python//' | sort -uV | tail -n 1)"
+          if [ -z "$latest" ]; then
+            echo "::error::no python3.X package found in $image"
+            exit 1
+          fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          if [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -n 1)" = "$current" ]; then
+            echo "Python $current is the newest in the UBI 10 AppStream."
+          else
+            echo "UBI 10 ships Python $latest, the image uses $current."
+            echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open the bump PR
+        if: steps.version.outputs.latest != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.repository.default_branch }}
+          CURRENT: ${{ steps.version.outputs.current }}
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
+          branch="deps/python-$LATEST"
+          if [ "$(gh pr list --head "$branch" --state all --json number --jq length)" != 0 ]; then
+            echo "A PR from $branch already exists (open, merged or closed); nothing to do."
+            exit 0
+          fi
+          title="deps(python): bump Python from $CURRENT to $LATEST"
+          printf '%s\n' "$LATEST" > .python-version
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git commit -q -m "$title" .python-version
+          git push -q --force origin "$branch"
+          gh pr create --base "$BASE" --head "$branch" --title "$title" --body-file - <<BODY
+          The UBI 10 AppStream now ships \`python$LATEST\`. This raises \`.python-version\` from $CURRENT to $LATEST, so the image installs that package and Dependabot resolves \`requirements.txt\` against the new Python.
+
+          Opened by the \`python bump\` workflow. It merges itself once \`ci\` (build, smoke test) passes. If \`ci\` fails (for example a dependency has no wheel for the new Python yet), fix it on this branch or close the PR; a closed PR is not opened again.
+          BODY
+          gh workflow run ci.yml --ref "$branch"
+          gh pr merge --auto --squash "$branch"

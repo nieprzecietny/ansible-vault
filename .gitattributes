@@ -4,3 +4,4 @@ Dockerfile text eol=lf
 *.yml text eol=lf
 *.txt text eol=lf
 *.in text eol=lf
+.python-version text eol=lf

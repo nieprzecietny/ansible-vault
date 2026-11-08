@@ -115,8 +115,10 @@ echo my-vault-password
 
 Inside:
 
-- RHEL 10 UBI packages: `bash`, `coreutils-single`, `python3` and their dependencies, installed
+- RHEL 10 UBI packages: `bash`, `coreutils-single`, `python3.X` and their dependencies, installed
   straight from the UBI repositories at build time. The RPM database is kept so scanners see every package.
+  Python is the AppStream package for the version in `.python-version` (now 3.14), not the system
+  `python3` (3.12), because ansible-core 2.22 and later require Python 3.13 or newer.
 - `ansible-core` and its eight Python dependencies, pinned with hashes in `requirements.txt`.
 - One entry point, `/usr/local/bin/ansible-vault`. The other ansible CLIs are removed.
 - An unprivileged default user (`ansible`, UID 1000). `ANSIBLE_HOME` points at `/tmp`.
@@ -153,6 +155,12 @@ docker buildx imagetools inspect nieprzecietnykowalski/ansible-vault:latest --fo
    dependencies (`requirements.txt`, hashes included, security updates as soon as an advisory is
    out) and for the GitHub Actions. They are merged automatically once the `ci` check (build,
    smoke test, scans) is green, and the next `publish` run ships them.
+4. **Python** is an RPM from the UBI 10 AppStream, which Dependabot cannot track. The daily
+   `python bump` workflow (04:41 UTC) does the same job: when UBI 10 ships a newer `python3.X`, it
+   opens a pull request that raises `.python-version`, starts `ci` on it and enables auto-merge.
+   `.python-version` is the only place the version lives: the `Dockerfile` installs that package
+   and Dependabot resolves `requirements.txt` against it, so it does not propose packages the
+   image's Python cannot install. A closed, unmerged bump PR is not opened again.
 
 To publish by hand: Actions, `publish`, *Run workflow* (tick *force* to publish an unchanged image).
 
@@ -163,7 +171,9 @@ docker build -t ansible-vault:dev .
 scripts/smoke-test.sh ansible-vault:dev
 ```
 
-To change the `ansible-core` version, edit `requirements.in` and regenerate the pinned file:
+To change the Python version, edit `.python-version` (the `python3.X` package must exist in the UBI 10
+AppStream). To change the `ansible-core` version, edit `requirements.in` and regenerate the pinned
+file with that Python:
 
 ```bash
 pip-compile --generate-hashes --strip-extras -o requirements.txt requirements.in

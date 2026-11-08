@@ -1,3 +1,5 @@
-# Only requirements.txt is copied into the build; nothing else from the repo can leak into the image.
+# Only requirements.txt and .python-version are copied into the build; nothing else from the repo
+# can leak into the image.
 *
 !requirements.txt
+!.python-version
