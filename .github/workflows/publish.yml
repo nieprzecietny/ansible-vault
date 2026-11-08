@@ -66,14 +66,28 @@ jobs:
       - name: Integration test
         run: scripts/integration-test.sh ansible-vault:candidate
 
+      # The installer actions download from github.com/<repo>/releases/download,
+      # which returned HTTP 504 for hours on 2026-11-08 while the GitHub API kept
+      # working. When an installer fails, its fallback step fetches the latest
+      # release through the API instead (checksum-verified).
       - name: Install syft
         id: syft
+        continue-on-error: true
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+
+      - name: Install syft (fallback through the GitHub API)
+        id: syft-api
+        if: steps.syft.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cmd="$(scripts/install-release-binary.sh anchore/syft 'syft_*_linux_amd64.tar.gz' 'syft_*_checksums.txt' syft)"
+          echo "cmd=$cmd" >> "$GITHUB_OUTPUT"
 
       - name: Compare package set with the published image
         id: diff
         env:
-          SYFT: ${{ steps.syft.outputs.cmd }}
+          SYFT: ${{ steps.syft.outputs.cmd || steps.syft-api.outputs.cmd }}
           FORCE: ${{ inputs.force == true }}
         run: scripts/package-diff.sh ansible-vault:candidate "$DOCKERHUB_IMAGE:latest"
 
@@ -120,6 +134,20 @@ jobs:
             org.opencontainers.image.description=ansible-vault CLI only, on a minimal RHEL 10 UBI root filesystem. No package manager, no pip, no editors.
             org.opencontainers.image.version=${{ steps.ver.outputs.core }}-${{ steps.ver.outputs.date }}
 
+      # Before the push, so a cosign that cannot be installed stops the run
+      # before an unsigned image is published.
+      - name: Install cosign
+        id: cosign
+        if: steps.diff.outputs.changed == 'true'
+        continue-on-error: true
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+      - name: Install cosign (fallback through the GitHub API)
+        if: steps.diff.outputs.changed == 'true' && steps.cosign.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/install-release-binary.sh sigstore/cosign cosign-linux-amd64 cosign_checksums.txt cosign
+
       - name: Build and push (linux/amd64, linux/arm64)
         if: steps.diff.outputs.changed == 'true'
         id: push
@@ -133,10 +161,6 @@ jobs:
           sbom: true
           provenance: mode=max
           cache-from: type=gha,scope=publish-${{ github.run_id }}
-
-      - name: Install cosign
-        if: steps.diff.outputs.changed == 'true'
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
       - name: Sign image (keyless, GitHub OIDC)
         if: steps.diff.outputs.changed == 'true'
