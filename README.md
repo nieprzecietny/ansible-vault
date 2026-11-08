@@ -154,8 +154,10 @@ docker buildx imagetools inspect nieprzecietnykowalski/ansible-vault:latest --fo
    the package diff. If nothing changed, nothing is published.
 3. **Dependabot** opens pull requests for the UBI builder image digest, for `ansible-core` and its
    dependencies (`requirements.txt`, hashes included, security updates as soon as an advisory is
-   out) and for the GitHub Actions. They are merged automatically once the `ci` check (build,
-   smoke test, integration test, scans) is green, and the next `publish` run ships them.
+   out) and for the GitHub Actions (all action bumps in one grouped PR, because separate PRs
+   touching the same workflow files cannot all auto-merge). They are merged automatically once the
+   `ci` check (build, smoke test, integration test, scans) is green, and the next `publish` run
+   ships them.
 4. **Python** is an RPM from the UBI 10 AppStream, which Dependabot cannot track. The daily
    `python bump` workflow (04:41 UTC) does the same job: when UBI 10 ships a newer `python3.X`, it
    opens a pull request that raises `.python-version`, starts `ci` on it and enables auto-merge.
