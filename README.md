@@ -6,8 +6,8 @@
 installing Ansible. The image is a minimal RHEL 10 (Red Hat UBI) root filesystem with Python and
 `ansible-core`, rebuilt and rescanned every day and published only when something inside changed.
 
-- Docker Hub: `nieprzecietnykowalski/ansible-vault`
-- GitHub Container Registry: `ghcr.io/nieprzecietny/ansible-vault`
+Image: `nieprzecietnykowalski/ansible-vault` on Docker Hub. Older versions were also pushed to
+`ghcr.io/nieprzecietny/ansible-vault`; that copy is no longer updated.
 
 | Tag | Meaning |
 |---|---|
@@ -150,7 +150,7 @@ docker buildx imagetools inspect nieprzecietnykowalski/ansible-vault:latest --fo
    not used because it does not support RHEL 10 yet) and compares its package set with the
    published `latest` using syft.
 2. **If anything changed** (RHEL errata, a new `ansible-core`, a new dependency) a new version is
-   pushed to both registries, signed, and tagged as in the table above. Each run's summary lists
+   pushed to Docker Hub, signed, and tagged as in the table above. Each run's summary lists
    the package diff. If nothing changed, nothing is published.
 3. **Dependabot** opens pull requests for the UBI builder image digest, for `ansible-core` and its
    dependencies (`requirements.txt`, hashes included, security updates as soon as an advisory is
