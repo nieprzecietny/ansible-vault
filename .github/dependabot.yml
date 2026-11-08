@@ -1,7 +1,7 @@
 # Dependabot keeps three things current and opens PRs for each:
 #   docker          -> digest of the UBI builder image in the Dockerfile
 #   pip             -> ansible-core and its dependencies in requirements.txt (with hashes)
-#   github-actions  -> the SHA-pinned actions in .github/workflows
+#   github-actions  -> the SHA-pinned actions in .github/workflows (one grouped PR)
 # Python itself is an RPM from the UBI 10 AppStream, which Dependabot cannot
 # track: .github/workflows/python-bump.yml raises .python-version instead.
 # Dependabot reads .python-version, so pip updates are resolved against the
@@ -31,3 +31,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: "deps(actions)"
+    # All action bumps in one PR. Separate PRs touching the same workflow
+    # files cannot all auto-merge: once the first is merged the others are
+    # behind master, and merging them would write a workflow file, which the
+    # GITHUB_TOKEN behind auto-merge may not do ("without `workflows`
+    # permission"), so GitHub turns auto-merge off for them.
+    groups:
+      actions:
+        patterns: ["*"]
