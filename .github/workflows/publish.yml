@@ -26,7 +26,6 @@ concurrency:
 
 env:
   DOCKERHUB_IMAGE: nieprzecietnykowalski/ansible-vault
-  GHCR_IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
   publish:
@@ -34,7 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
       id-token: write        # cosign keyless signing
       security-events: write # SARIF upload to code scanning
     steps:
@@ -49,13 +47,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       # no-cache: the dnf step must really run so today's RHEL packages land in
       # the image. The layers are exported to a run-scoped cache so the
@@ -118,9 +109,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: |
-            ${{ env.DOCKERHUB_IMAGE }}
-            ${{ env.GHCR_IMAGE }}
+          images: ${{ env.DOCKERHUB_IMAGE }}
           tags: |
             type=raw,value=latest
             type=raw,value=${{ steps.ver.outputs.minor }}
@@ -149,13 +138,11 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
-      - name: Sign images (keyless, GitHub OIDC)
+      - name: Sign image (keyless, GitHub OIDC)
         if: steps.diff.outputs.changed == 'true'
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
-        run: |
-          cosign sign --yes "$DOCKERHUB_IMAGE@$DIGEST"
-          cosign sign --yes "$GHCR_IMAGE@$DIGEST"
+        run: cosign sign --yes "$DOCKERHUB_IMAGE@$DIGEST"
 
       - name: Summary
         if: steps.diff.outputs.changed == 'true'
