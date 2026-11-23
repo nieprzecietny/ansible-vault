@@ -14,7 +14,7 @@
 # lives in .python-version only (Dependabot's pip resolution reads it too) and
 # .github/workflows/python-bump.yml raises it when UBI 10 ships a newer one.
 
-FROM registry.access.redhat.com/ubi10/ubi:latest@sha256:73ea54bfbfb586075bd3d45df6483a7f68875233c8cc7cebcf9b2bb42306c308 AS builder
+FROM registry.access.redhat.com/ubi10/ubi:latest@sha256:87ceab8634a53a36c75a8ba7282f09f11c46ab3e8906db6c6d2b3cd2a7dc4f4e AS builder
 
 COPY .python-version /tmp/.python-version
 
